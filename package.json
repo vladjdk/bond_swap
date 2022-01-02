@@ -1,0 +1,26 @@
+{
+  "name": "bond_swap",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/photonized/bond_swap.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/photonized/bond_swap/issues"
+  },
+  "homepage": "https://github.com/photonized/bond_swap#readme",
+  "dependencies": {
+    "@terra-money/terra.js": "^3.0.2",
+    "csv-writer": "^1.6.0",
+    "isomorphic-fetch": "^3.0.0"
+  }
+}

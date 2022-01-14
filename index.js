@@ -1,5 +1,15 @@
 import { LCDClient, Coin, Int } from "@terra-money/terra.js";
-import { createObjectCsvWriter } from "csv-writer";
+import sqlite3 from "sqlite3";
+import os from "os";
+
+var db = new sqlite3.Database(`${os.homedir()}/db/bondswap.db`, (err) => {
+    if(err) {
+        console.error(err.message);
+    } else {
+        console.log('Connected to the database.')
+    }
+});
+
 //connect to bombay testnet
 const terra =  new LCDClient({
     URL: 'https://lcd.terra.dev',
@@ -43,10 +53,7 @@ function average(data){
 var simulation = "https://fcd.terra.dev/wasm/contracts/terra1jxazgm67et0ce260kvrpfv50acuushpjsz2y0p/store?query_msg=%7B%22simulation%22%3A%7B%22offer_asset%22%3A%7B%22amount%22%3A%221000000000%22%2C%22info%22%3A%7B%22native_token%22%3A%7B%22denom%22%3A%22uluna%22%7D%7D%7D%7D%7D";
 var reverse_simulation = "https://fcd.terra.dev/wasm/contracts/terra1jxazgm67et0ce260kvrpfv50acuushpjsz2y0p/store?query_msg=%7B%22simulation%22%3A%7B%22offer_asset%22%3A%7B%22amount%22%3A%221000000000%22%2C%22info%22%3A%7B%22token%22%3A%7B%22contract_addr%22%3A%22terra1kc87mu460fwkqte29rquh4hc20m54fxwtsx7gp%22%7D%7D%7D%7D%7D";
 
-var blocks = [];
-var uluna = [];
-var bluna = [];
-var price = [];
+price = [];
 var all = [];
 var m = 0;
 var std = 0
@@ -78,37 +85,46 @@ while(true) {
         }
     }
 
+    var all = [];
     //waiting for and implicitly sorting all the promises by block height
     await Promise.all(promises).then(res => {
         for(const c in res) {
             // console.log(res[c].height);
-            blocks.unshift(res[c].height);
+
+            const block = res[c].height;
+            const price = res[c].result.assets[1].amount/res[c].result.assets[0].amount;
+            // blocks.push(res[c].height);
+            // price.push(res[c].result.assets[1].amount/res[c].result.assets[0].amount)
             // console.log(res[c].result.assets[0]);
-            bluna.unshift(res[c].result.assets[0].amount);
             // console.log(res[c].result.assets[1]);
-            uluna.unshift(res[c].result.assets[1].amount);
             // console.log(res[c].result.assets[1].amount/res[c].result.assets[0].amount);
-            price.unshift(res[c].result.assets[1].amount/res[c].result.assets[0].amount);
-            all.unshift({block:blocks[c], bluna:bluna[c], uluna:uluna[c], price:price[c]})
+            all.push([block, price])
         }
     });
 
-    startingBlockHeight = blocks[0];
 
-    while(blocksBack != all.length) {
-        blocks.pop()
-        bluna.pop()
-        uluna.pop()
-        price.pop()
-        all.pop()
-    }
+    var flatRow = [];
+    all.forEach((arr) => {arr.forEach((item) => {flatRow.push(item)})});
 
+    let placeholders = all.map(() => '(?, ?)').join(',');
+    let sql = 'INSERT INTO ts_luna_bluna(block,price) VALUES ' + placeholders;
+
+    db.run(sql, flatRow, (err) => {
+        if(err) {
+            return console.log(err.message); 
+        }
+        console.log(`Row was added to the table.`);
+    });
+
+    startingBlockHeight = all[all.length-1][0];
+
+    
     m = average(price);
     std = standardDeviation(price);
 
     console.log(`Mean: ${m}`);
     console.log(`Standard Deviation: ${std}`);
-    console.log(`Current Price: ${price[0]}`);
+    console.log(`Current Price: ${all[all.length-1][1]}`);
     console.log();
     // console.log(`Last Price: ${lastPrice}`)
 

@@ -1,4 +1,4 @@
-import { LCDClient, Coin } from "@terra-money/terra.js";
+import { LCDClient, Coin, Int } from "@terra-money/terra.js";
 import { createObjectCsvWriter } from "csv-writer";
 //connect to bombay testnet
 const terra =  new LCDClient({
@@ -14,7 +14,31 @@ const pools = {
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
-  }
+}
+
+function standardDeviation(values){
+    var avg = average(values);
+    
+    var squareDiffs = values.map(function(value){
+      var diff = value - avg;
+      var sqrDiff = diff * diff;
+      return sqrDiff;
+    });
+    
+    var avgSquareDiff = average(squareDiffs);
+  
+    var stdDev = Math.sqrt(avgSquareDiff);
+    return stdDev;
+}
+  
+function average(data){
+    var sum = data.reduce(function(sum, value){
+        return sum + value;
+    }, 0);
+
+    var avg = sum / data.length;
+    return avg;
+}
 
 var simulation = "https://fcd.terra.dev/wasm/contracts/terra1jxazgm67et0ce260kvrpfv50acuushpjsz2y0p/store?query_msg=%7B%22simulation%22%3A%7B%22offer_asset%22%3A%7B%22amount%22%3A%221000000000%22%2C%22info%22%3A%7B%22native_token%22%3A%7B%22denom%22%3A%22uluna%22%7D%7D%7D%7D%7D";
 var reverse_simulation = "https://fcd.terra.dev/wasm/contracts/terra1jxazgm67et0ce260kvrpfv50acuushpjsz2y0p/store?query_msg=%7B%22simulation%22%3A%7B%22offer_asset%22%3A%7B%22amount%22%3A%221000000000%22%2C%22info%22%3A%7B%22token%22%3A%7B%22contract_addr%22%3A%22terra1kc87mu460fwkqte29rquh4hc20m54fxwtsx7gp%22%7D%7D%7D%7D%7D";
@@ -24,6 +48,8 @@ var uluna = [];
 var bluna = [];
 var price = [];
 var all = [];
+var m = 0;
+var std = 0
 
 var currentBlockInfo = await terra.tendermint.blockInfo();
 // console.log(currentBlockInfo)
@@ -44,9 +70,7 @@ while(true) {
     for(var i = startingBlockHeight; i<=currentHeight; i++) {
         promises.push(terra.apiRequester.getRaw(`https://fcd.terra.dev/wasm/contracts/${pools.ts_lunabluna}/store?query_msg=%7B%22pool%22:%7B%7D%7D&height=${i}`));
         if(c%10==0) {
-            console.log("Taking a break");
             await sleep(1000);
-            console.log("Break time done!");
         }
         c++;
         if(c%1000==0) {
@@ -69,30 +93,25 @@ while(true) {
         }
     });
 
-    console.log(blocks);
-
     startingBlockHeight = blocks[0];
-    console.log(`Starting Block: ${startingBlockHeight}`);
-    await sleep(3000);
+
+    while(blocksBack != all.length) {
+        blocks.pop()
+        bluna.pop()
+        uluna.pop()
+        price.pop()
+        all.pop()
+    }
+
+    m = average(price);
+    std = standardDeviation(price);
+
+    console.log(`Mean: ${m}`);
+    console.log(`Standard Deviation: ${std}`);
+    console.log(`Current Price: ${price[0]}`);
+    console.log();
+    // console.log(`Last Price: ${lastPrice}`)
+
+    await sleep(3000); //poll every 3 seconds
 
 }
-
-//create csv writer and write to csv
-const csvWriter = createObjectCsvWriter({
-    path:'test.csv',
-    header: [
-        {id: 'block', title: 'Block'},
-        {id: 'bluna', title: 'bLuna'},
-        {id: 'luna', title: 'luna'},
-        {id: 'price', title: 'Price'},
-    ]
-});
-
-csvWriter
-    .writeRecords(all)
-    .then(() => console.log("csv written"));
-
-console.log(bluna);
-console.log(uluna);
-console.log(blocks);
-console.log(price);

@@ -64,7 +64,6 @@ var std = 0;
 var id = 0;
 
 var currentBlockInfo = await terra.tendermint.blockInfo();
-// console.log(currentBlockInfo)
 var currentHeight = currentBlockInfo.block.header.height;
 var startingBlockHeight = 0;
 
@@ -110,7 +109,6 @@ async function synchronize() {
         //  3. database has values in window => fill database fully
 
         var currentBlockInfo = await terra.tendermint.blockInfo();
-        // console.log(currentBlockInfo)
         var currentHeight = currentBlockInfo.block.header.height;
 
         console.log(`Current Block: ${currentHeight}`);
@@ -120,7 +118,7 @@ async function synchronize() {
         for(var i = parseInt(startingBlockHeight)+1; i<=currentHeight; i++) {
             promises.push(terra.apiRequester.getRaw(`https://fcd.terra.dev/wasm/contracts/${pools.ts_lunabluna}/store?query_msg=%7B%22pool%22:%7B%7D%7D&height=${i}`));
             if(c%10==0) {
-                await sleep(1000);
+                await sleep(1500);
             }
             c++;
             if(c%1000==0) {
@@ -132,15 +130,8 @@ async function synchronize() {
         //waiting for and implicitly sorting all the promises by block height
         await Promise.all(promises).then(res => {
             for(const c in res) {
-                // console.log(res[c].height);
-
                 const block = res[c].height;
                 const price = res[c].result.assets[1].amount/res[c].result.assets[0].amount;
-                // blocks.push(res[c].height);
-                // price.push(res[c].result.assets[1].amount/res[c].result.assets[0].amount)
-                // console.log(res[c].result.assets[0]);
-                // console.log(res[c].result.assets[1]);
-                // console.log(res[c].result.assets[1].amount/res[c].result.assets[0].amount);
                 all.push([id, block, price]);
                 cachedBlocks.unshift(block);
                 cachedPrices.unshift(price);
@@ -152,11 +143,6 @@ async function synchronize() {
             cachedPrices.pop();
             cachedBlocks.pop();
         }
-
-        // console.log(`Cached Prices Length: ${cachedPrices.length}`);
-        // console.log(`Cached Prices: ${cachedPrices}`);
-        // console.log(`Cached Blocks Length: ${cachedBlocks.length}`);
-        // console.log(`Cached Blocks: ${cachedBlocks}`);
 
         var flatRow = [];
         all.forEach((arr) => {arr.forEach((item) => {flatRow.push(item)})});
@@ -182,7 +168,6 @@ async function synchronize() {
         console.log(`Standard Deviation: ${std}`);
         console.log(`Current Price: ${currentPrice}`);
         console.log();
-        // console.log(`Last Price: ${lastPrice}`)
 
         await sleep(3000); //poll every 3 seconds
     }

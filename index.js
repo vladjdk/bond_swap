@@ -130,6 +130,10 @@ async function synchronize() {
                         id++;
                     }
                 });
+                while(cachedPrices.length != blocksBack) {
+                    cachedPrices.pop();
+                    cachedBlocks.pop();
+                }
                 console.log("Pushed 10 rows.")
                 promises = [];
                 await sleep(1500);

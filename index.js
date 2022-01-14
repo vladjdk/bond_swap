@@ -118,6 +118,20 @@ async function synchronize() {
         for(var i = parseInt(startingBlockHeight)+1; i<=currentHeight; i++) {
             promises.push(terra.apiRequester.getRaw(`https://fcd.terra.dev/wasm/contracts/${pools.ts_lunabluna}/store?query_msg=%7B%22pool%22:%7B%7D%7D&height=${i}`));
             if(c%10==0) {
+                all = [];
+                //waiting for and implicitly sorting all the promises by block height
+                await Promise.all(promises).then(res => {
+                    for(const c in res) {
+                        const block = res[c].height;
+                        const price = res[c].result.assets[1].amount/res[c].result.assets[0].amount;
+                        all.push([id, block, price]);
+                        cachedBlocks.unshift(block);
+                        cachedPrices.unshift(price);
+                        id++;
+                    }
+                });
+                console.log("Pushed 10 rows.")
+                promises = [];
                 await sleep(1500);
             }
             c++;
@@ -126,7 +140,7 @@ async function synchronize() {
             }
         }
 
-        var all = [];
+        all = [];
         //waiting for and implicitly sorting all the promises by block height
         await Promise.all(promises).then(res => {
             for(const c in res) {

@@ -137,6 +137,22 @@ async function synchronize() {
                         cachedBlocks.pop();
                     }
                 }
+
+                var flatRow = [];
+                all.forEach((arr) => {arr.forEach((item) => {flatRow.push(item)})});
+
+                let placeholders = all.map(() => '(?, ?, ?)').join(',');
+                let sql = 'INSERT INTO ts_luna_bluna(id,block,price) VALUES ' + placeholders;
+
+                if (all.length > 0) {
+                    db.run(sql, flatRow, (err) => {
+                        if(err) {
+                            return console.log(err.message); 
+                        }
+                    });
+                    startingBlockHeight = all[all.length-1][1];
+                    currentPrice = all[all.length-1][2]
+                }
                 console.log("Pushed 10 rows.")
                 promises = [];
                 await sleep(1500);

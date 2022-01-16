@@ -153,9 +153,11 @@ async function synchronize() {
                     startingBlockHeight = all[all.length-1][1];
                     currentPrice = all[all.length-1][2]
                 }
-                console.log("Pushed 10 rows.")
+                console.log(`Pushed ${all.length} rows.`)
                 promises = [];
-                await sleep(1500);
+                if(all.length > 9) {
+                    await sleep(1500);
+                }
             }
             c++;
             if(c%1000==0) {

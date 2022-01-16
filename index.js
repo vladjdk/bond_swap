@@ -1,8 +1,6 @@
-import { LCDClient, Coin, Int } from "@terra-money/terra.js";
+import { LCDClient } from "@terra-money/terra.js";
 import sqlite3 from "sqlite3";
 import os from "os";
-import { exit } from "process";
-import { start } from "repl";
 
 var db = new sqlite3.Database(`${os.homedir()}/db/bondswap.db`, (err) => {
     if(err) {
@@ -52,52 +50,56 @@ function average(data){
     return avg;
 }
 
-var simulation = "https://fcd.terra.dev/wasm/contracts/terra1jxazgm67et0ce260kvrpfv50acuushpjsz2y0p/store?query_msg=%7B%22simulation%22%3A%7B%22offer_asset%22%3A%7B%22amount%22%3A%221000000000%22%2C%22info%22%3A%7B%22native_token%22%3A%7B%22denom%22%3A%22uluna%22%7D%7D%7D%7D%7D";
-var reverse_simulation = "https://fcd.terra.dev/wasm/contracts/terra1jxazgm67et0ce260kvrpfv50acuushpjsz2y0p/store?query_msg=%7B%22simulation%22%3A%7B%22offer_asset%22%3A%7B%22amount%22%3A%221000000000%22%2C%22info%22%3A%7B%22token%22%3A%7B%22contract_addr%22%3A%22terra1kc87mu460fwkqte29rquh4hc20m54fxwtsx7gp%22%7D%7D%7D%7D%7D";
+while(true) {
+    var simulation = "https://fcd.terra.dev/wasm/contracts/terra1jxazgm67et0ce260kvrpfv50acuushpjsz2y0p/store?query_msg=%7B%22simulation%22%3A%7B%22offer_asset%22%3A%7B%22amount%22%3A%221000000000%22%2C%22info%22%3A%7B%22native_token%22%3A%7B%22denom%22%3A%22uluna%22%7D%7D%7D%7D%7D";
+    var reverse_simulation = "https://fcd.terra.dev/wasm/contracts/terra1jxazgm67et0ce260kvrpfv50acuushpjsz2y0p/store?query_msg=%7B%22simulation%22%3A%7B%22offer_asset%22%3A%7B%22amount%22%3A%221000000000%22%2C%22info%22%3A%7B%22token%22%3A%7B%22contract_addr%22%3A%22terra1kc87mu460fwkqte29rquh4hc20m54fxwtsx7gp%22%7D%7D%7D%7D%7D";
 
-var currentPrice = 0;
-var cachedPrices = [];
-var cachedBlocks = [];
-var all = [];
-var m = 0;
-var std = 0;
-var id = 0;
+    var currentPrice = 0;
+    var cachedPrices = [];
+    var cachedBlocks = [];
+    var all = [];
+    var m = 0;
+    var std = 0;
+    var id = 0;
 
-var currentBlockInfo = await terra.tendermint.blockInfo();
-var currentHeight = currentBlockInfo.block.header.height;
-var startingBlockHeight = 0;
+    var currentBlockInfo = await terra.tendermint.blockInfo();
+    var currentHeight = currentBlockInfo.block.header.height;
+    var startingBlockHeight = 0;
 
-const lastRowQuery = "SELECT * FROM ts_luna_bluna ORDER BY id DESC LIMIT 1";
-db.all(lastRowQuery, [], (err, rows) => {
-    if (err) {
-      throw err;
-    }
-    //{ id: 103, block: 6076806, price: 0.9956316334725731 }
-    const row = rows[0];
-    if(row != undefined) {
-        id = row.id;
-        id++;
-        startingBlockHeight = row.block;
-    } else {
-        startingBlockHeight = currentHeight-blocksBack;
-    }
-
-    if (parseInt(currentHeight)-blocksBack < startingBlockHeight) {
-    const cacheRowQuery = `SELECT * FROM ts_luna_bluna ORDER BY id DESC LIMIT ${blocksBack-(currentHeight-startingBlockHeight)}`;
-    db.all(cacheRowQuery, [], (err, rows) => {
+    const lastRowQuery = "SELECT * FROM ts_luna_bluna ORDER BY id DESC LIMIT 1";
+    db.all(lastRowQuery, [], async (err, rows) => {
         if (err) {
-          throw err;
+        throw err;
         }
-        rows.forEach((row) => {
-            cachedBlocks.push(row.block);
-            cachedPrices.push(row.price);
-        })
-        
-    });
-    }
-    synchronize();
-});
+        //{ id: 103, block: 6076806, price: 0.9956316334725731 }
+        const row = rows[0];
+        if(row != undefined) {
+            id = row.id;
+            id++;
+            startingBlockHeight = row.block;
+        } else {
+            startingBlockHeight = currentHeight-blocksBack;
+        }
 
+        if (parseInt(currentHeight)-blocksBack < startingBlockHeight) {
+            const cacheRowQuery = `SELECT * FROM ts_luna_bluna ORDER BY id DESC LIMIT ${blocksBack-(currentHeight-startingBlockHeight)}`;
+            db.all(cacheRowQuery, [], (err, rows) => {
+                if (err) {
+                throw err;
+                }
+                rows.forEach((row) => {
+                    cachedBlocks.push(row.block);
+                    cachedPrices.push(row.price);
+                })
+                
+            });
+        }
+        console.log("HELLO")
+        await synchronize().catch(() => {
+            console.log("RESTARTING DUE TO PROMISE FAILURE")
+        });
+    });
+}
 
 async function synchronize() {
 
@@ -129,13 +131,13 @@ async function synchronize() {
                         cachedPrices.unshift(price);
                         id++;
                     }
+                }).catch((err) => {
+                    throw err.log
                 });
 
-                if(cachedPrices.length > blocksBack) {
-                    while(cachedPrices.length != blocksBack) {
-                        cachedPrices.pop();
-                        cachedBlocks.pop();
-                    }
+                while(cachedPrices.length > blocksBack) {
+                    cachedPrices.pop();
+                    cachedBlocks.pop();
                 }
 
                 var flatRow = [];
@@ -153,9 +155,11 @@ async function synchronize() {
                     startingBlockHeight = all[all.length-1][1];
                     currentPrice = all[all.length-1][2]
                 }
-                console.log("Pushed 10 rows.")
+                console.log(`Pushed ${all.length} rows.`);
                 promises = [];
-                await sleep(1500);
+                if(all.length >= 9) {
+                    await sleep(1500);
+                }
             }
             c++;
             if(c%1000==0) {
